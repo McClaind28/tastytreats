@@ -1,87 +1,112 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import Loading from '../assets/img/loading.gif';
-import postImage from '../assets/img/newspaper-icon-png.jpg';
-import PostForm from '../components/Posts/PostForm';
-import Post from '../components/Posts/Post';
-import { fetchPosts } from '../reducks/posts/operations';
-import { getPosts } from '../reducks/posts/selectors';
-
+import React from 'react'
+import Header from "../components/common/Header"
+import Footer from "../components/common/Footer"
+import Item from '../components/common/Item'
+import Review from '../components/popup/Review'
+import WriteReview from '../components/popup/WriteReview'
+import { useDispatch,useSelector } from 'react-redux'
+import {fetchItems} from "../reducks/items/operations"
+import { getItems } from '../reducks/items/selectors'
+import { getCarts,getSubtotal} from "../reducks/carts/selectors"
+import { fetchFromLocalStorage } from '../reducks/carts/operations'
+import queryString from "query-string"
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom';
+import {push} from 'connected-react-router'
 const Home = () => {
+    const parsed = queryString.parse(window.location.search);
+    const [showWriteReview, setShowWriteReview] = useState(false);
+    const [showReview, setShowReview] = useState(false);
+    const [showCartList, setShowCartList] = useState(false);
+    const [selectedItemId, setSelectedItemId] = useState();
     const dispatch = useDispatch();
     const selector = useSelector(state => state);
-    const posts = getPosts(selector);
-    let [page, setPage] = useState(1);
-    const [isLoading, setIsLoading] = useState(false);
+    const items = getItems(selector);
+    const carts = getCarts(selector);
+    const subtotal = getSubtotal(selector);
+    const [temp,  setTemp]=useState('')
+    const all =() => {
+        dispatch(push('/'))
+        setTemp('sdfhgj')
+    }
+    const hot =() => {
+        dispatch(push('/?category=hot'))
+        setTemp('dfghj')
+    }
+    const cold =() => {
+        dispatch(push('/?category=cold'))
+        setTemp('dfghfgh')
+    }
+    const bagel =() => {
+        dispatch(push('/?category=bagel'))
+        setTemp('dfghjkk')
+    }
 
     useEffect(() => {
-        dispatch(fetchPosts({ page }));
-        // eslint-disable-next-line
-    }, []);
+        dispatch(fetchFromLocalStorage());
+        dispatch(fetchItems(parsed.category));
+    }, [temp]);
 
-    // Infinite Scroll Pagination Flow
-    const observer = useRef();
+    const showItem = item => {
+        let selected_count = 0;
+        if (carts[item.id] && carts[item.id].selected_count) {
+            selected_count = carts[item.id].selected_count;
+        }
+        if (showCartList && carts[item.id] === undefined) {
+            // if the page is cart page and item is not slected, show nothing.
+            return;
+        }
+        return (
+            <div>
+                <Item
+                    key={item.id}
+                    item={item}
+                    selected_count={selected_count}
+                    setShowWriteReview={setShowWriteReview}
+                    setShowReview={setShowReview}
+                    setSelectedItemId={selectedItemId}
+                />
+            </div>
+        );
+    };
+  return (
+    <div>
+        <Header/>
+    <div className="menu">
+        {showCartList?(
+            <h2 className="title"> Cart</h2>
+        ):(
 
-    // Reference to a very last post element
-    const lastPostElement = useCallback(
-        node => {
-            if (isLoading) return;
-            // Disconnect reference from previous element, so that new last element is hook up correctly
-            if (observer.current) {
-                observer.current.disconnect();
-            }
+            <>
+                    <h2 className="title"> Our Most Popular Recipes</h2>
+                    <p>Try Our Most Delicious foods and it usually takes minutes to deliver
+                    </p>
 
-            // Observe changes in the intersection of target element
-            observer.current = new IntersectionObserver(async entries => {
-                // That means that we are on the page somewhere, In our case last element of the page
-                if (entries[0].isIntersecting && posts.next) {
-                    // Proceed fetch new page
-                    setIsLoading(true);
-                    setPage(++page);
-                    await dispatch(fetchPosts({ page }));
-                    setIsLoading(false);
-                }
-            });
+                    <div className="btn">
 
-            // Reconnect back with the new last post element
-            if (node) {
-                observer.current.observe(node);
-            }
-        },
-        // eslint-disable-next-line
-        [posts.next]
-    );
 
-    return (
-        <section className="content">
-            <PostForm />
-            <section className="posts">
-                {posts.results.length > 0 ? (
-                    <ul>
-                        {posts.results.map((post, index) => {
-                            return (
-                                <Post
-                                    ref={index === posts.results.length - 1 ? lastPostElement : null}
-                                    key={post.id}
-                                    post={post}
-                                />
-                            );
-                        })}
-                    </ul>
-                ) : (
-                    <div className="no-post">
-                        <img width="72" src={postImage} alt="icon" />
-                        <p>No posts here yet...</p>
+                        <a onClick={all}  className="btn btn-secondary" > ALL</a>
+                        <a onClick={hot} className="btn btn-secondary">HOT</a>
+                        <a onClick={cold} className="btn btn-secondary">COLD</a>
+                        <a onClick={bagel} className="btn btn-secondary">BAGEL</a>
                     </div>
-                )}
-                {isLoading && (
-                    <div className="loading">
-                        <img src={Loading} className="" alt="" />
-                    </div>
-                )}
-            </section>
-        </section>
-    );
+            
+                
+            </>    
+        )} 
+        <div className="container">{items && items.map(item=>showItem(item))} </div>
+      </div> 
+         <Footer price={subtotal} showCartList={showCartList} setShowCartList={setShowCartList} />
+         {showWriteReview && (
+             <WriteReview
+                selectedItemId={selectedItemId} 
+                setSelectedItemId={setSelectedItemId}
+                setShowWriteReview={setShowWriteReview}
+             />
+
+        )} 
+    </div>
+  );
 };
 
-export default Home;
+export default Home
